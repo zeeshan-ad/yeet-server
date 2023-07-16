@@ -23,21 +23,24 @@ CREATE TABLE user_sessions (
     token VARCHAR NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 CREATE TABLE user_profile (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
-    bio VARCHAR(255) NOT NULL,
-    profile_pic VARCHAR(255) NOT NULL,
-    theme VARCHAR(255) NOT NULL,
-    is_public BOOLEAN NOT NULL DEFAULT FALSE,
+    bio VARCHAR(255),
+    profile_pic VARCHAR(255),
+    theme VARCHAR(255),
+    is_public BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 CREATE TABLE user_mood (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
-    mood TEXT NOT NULL,
+    mood TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 CREATE TABLE user_posts_memos (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
