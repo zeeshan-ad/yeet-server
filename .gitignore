@@ -1,0 +1,25 @@
+# Node.js dependencies
+node_modules/
+
+# Build artifacts
+build/
+dist/
+
+# Environment variables
+# .env
+
+
+# Logs
+*.log
+logs/
+log.txt
+
+# Editor/IDE specific files
+.vscode/
+.idea/
+
+# macOS specific files
+.DS_Store
+
+# Windows thumbnail cache
+Thumbs.db
