@@ -7,7 +7,7 @@ var bcrypt = require('bcrypt');
 const fs = require('fs');
 const moment = require('moment-timezone');
 const generateAccessToken = require('./functions');
-const port = 3000;
+const port = 8080;
 
 // middleware
 app.use(express.json());
