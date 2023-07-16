@@ -115,9 +115,8 @@ app.use('/moments', express.static(__dirname + '/moments'));
 
 // routes
 
-// index route
 app.get('/', (req, res) => {
-  res.send('Welcome to Yeet API');
+  res.send('Welcome to the server');
 });
 
 // verify email exits or not
