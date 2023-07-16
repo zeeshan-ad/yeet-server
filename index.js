@@ -451,6 +451,7 @@ app.get('/api/users/get_mood', checkToken, async (req, res) => {
 // post user_posts_memos
 app.post('/api/users/post_memos', checkToken, async (req, res) => {
   const { Memo } = req.body;
+
   try {
     const token = req.headers.authorization;
     const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
@@ -859,7 +860,7 @@ const getNamePic = async (arr) => {
       profile_pic: profile.rows[0].profile_pic,
       name: user.rows[0].name,
       user_id: user.rows[0].id,
-      date: moment(convertUtcTimestamp(arr[i]?.created_at)).format('DD/MM/YY hh:mm a'),
+      date: arr[i]?.created_at,
     });
   }
   return newArr;
