@@ -115,6 +115,11 @@ app.use('/moments', express.static(__dirname + '/moments'));
 
 // routes
 
+// privacy policy
+app.get('/privacy-policy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'privacy-policy.html'));
+});
+
 app.get('/', (req, res) => {
   res.send('Welcome to the server');
 });
