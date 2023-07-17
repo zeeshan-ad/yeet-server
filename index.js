@@ -663,9 +663,8 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
 
 // get feed data from user_posts_memos and user_posts_moments of friends and user itself arranged by time
 app.get('/api/users/feed', checkToken, async (req, res) => {
-
   const currentDate = moment.utc(new Date()).local().format("YYYY-MM-DD");
-  const prevDate = moment.utc().local().subtract(1, 'day').format("YYYY-MM-DD");;
+  const prevDate = moment.utc().local().subtract(1, 'day').format("YYYY-MM-DD");
   try {
     const token = req.headers.authorization;
     const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
@@ -675,8 +674,7 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
 
     // get friends list
     const friends = await pool.query('SELECT * FROM friends_requests WHERE (req_by_id = $1 OR req_to_id = $1) AND status = $2', [session.rows[0].user_id, 'accepted']);
-    if (!friends.rows.length) return res.status(404).json({ status: 404, message: 'No friends found' });
-
+    console.log(prevDate, currentDate);
     // get friends posts
     const friends_posts = await Promise.all(friends.rows.map(async (item) => {
       const posts_memos = await pool.query('SELECT * FROM user_posts_memos WHERE user_id = $1 AND DATE(created_at) BETWEEN $2 AND $3 ORDER BY id DESC', [session.rows[0].user_id === item.req_by_id ? item.req_to_id : item.req_by_id, prevDate, currentDate]);
@@ -687,7 +685,6 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
         ...posts_memos?.rows?.map(item => ({ ...item, type: 'memo', name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, theme: profile.rows[0].theme })),
       ]
       const dataMoments = posts_moments?.rows?.map(item => ({ ...item, type: 'moment', name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic }));
-
       return [...dataMemos, dataMoments];
     }));
 
@@ -766,7 +763,7 @@ app.get('/api/users/user_profile_posts_moments', checkToken, async (req, res) =>
 
     const modifiedData = user_posts_moments.rows.map(item => ({
       ...item,
-      date: convertUtcTimestamp(item?.created_at),
+      date: item?.created_at,
       profile_pic: profile.rows[0].profile_pic,
       name: user.rows[0].name,
     })
