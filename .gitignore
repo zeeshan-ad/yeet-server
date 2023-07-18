@@ -12,10 +12,6 @@ moments/
 # Environment variables
 # .env
 
-# Folders
-uploads/
-moments/
-
 # Logs
 *.log
 logs/
