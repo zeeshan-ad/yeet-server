@@ -6,8 +6,11 @@ build/
 dist/
 
 # Environment variables
-# .env
+.env
 
+# Folders
+uploads/
+moments/
 
 # Logs
 *.log
