@@ -81,3 +81,12 @@ CREATE TABLE user_posts_comments (
     comment TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- TABLE to store reported users
+CREATE TABLE user_reports (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    reported_user_id INT NOT NULL,
+    reason TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

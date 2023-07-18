@@ -286,7 +286,6 @@ app.post('/api/users/forgot-password', async (req, res) => {
 // verify otp
 app.post('/api/users/verify-otp', async (req, res) => {
   const { email, otp } = req.body;
-  console.log(email, otp)
   try {
     const user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (user.rows.length === 0) {
@@ -299,7 +298,6 @@ app.post('/api/users/verify-otp', async (req, res) => {
     if (otpInfo.rows[0].otp === otp) {
       return res.status(200).json({ status: 200, message: 'OTP verified' });
     } else {
-      console.log('Wrong OTP');
       return res.status(200).json({ status: 401, message: 'You have entered an invalid OTP' });
     }
   } catch (err) {
@@ -679,7 +677,6 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
 
     // get friends list
     const friends = await pool.query('SELECT * FROM friends_requests WHERE (req_by_id = $1 OR req_to_id = $1) AND status = $2', [session.rows[0].user_id, 'accepted']);
-    console.log(prevDate, currentDate);
     // get friends posts
     const friends_posts = await Promise.all(friends.rows.map(async (item) => {
       const posts_memos = await pool.query('SELECT * FROM user_posts_memos WHERE user_id = $1 AND DATE(created_at) BETWEEN $2 AND $3 ORDER BY id DESC', [session.rows[0].user_id === item.req_by_id ? item.req_to_id : item.req_by_id, prevDate, currentDate]);
@@ -936,13 +933,27 @@ app.get('/api/users/get_friends', checkToken, async (req, res) => {
       return { name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, id: user.rows[0].id };
     }))
 
-    console.log(data);
-
     return res.status(200).json({ status: 200, message: 'Friends fetched successfully', data });
   } catch (err) {
     res.status(500).json({ status: 500, message: "Internal Server Error" })
   }
 })
+
+// report user
+app.post('/api/users/report_user', checkToken, async (req, res) => {
+  const { reportedUserId, ReportReason } = req.body;
+
+  try {
+    const token = req.headers.authorization;
+    const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
+
+    await pool.query('INSERT INTO user_reports (user_id, reported_user_id, reason, created_at) VALUES ($1, $2, $3, $4)', [session.rows[0].user_id, reportedUserId, ReportReason, new Date()]);
+    return res.status(200).json({ status: 200, message: 'User reported successfully' });
+  } catch (err) {
+    res.status(500).json({ status: 500, message: "Internal Server Error" })
+  }
+})
+
 
 
 
