@@ -5,6 +5,10 @@ node_modules/
 build/
 dist/
 
+#folders
+uploads/
+moments/
+
 # Environment variables
 .env
 

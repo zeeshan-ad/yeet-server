@@ -7,7 +7,7 @@ var bcrypt = require('bcrypt');
 const fs = require('fs');
 const moment = require('moment-timezone');
 const generateAccessToken = require('./functions');
-const port = 3000;
+const port = 8080;
 
 // middleware
 app.use(express.json());
@@ -115,6 +115,11 @@ app.use('/moments', express.static(__dirname + '/moments'));
 
 // routes
 
+// privacy policy
+app.get('/privacy-policy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'privacy-policy.html'));
+});
+
 app.get('/', (req, res) => {
   res.send('Welcome to the server');
 });
@@ -163,23 +168,22 @@ app.post('/api/users/create-account', async (req, res) => {
     bcrypt.genSalt(10, function (err, salt) {
       bcrypt.hash(password, salt, async function (err, hash) {
         try {
+
+          // check if email already exists
+          const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+          if (result.rows?.length > 0) {
+            return res.status(409).json({ status: 409, message: 'Email already exists, Please try logging In.' });
+          }
+
           const newUser = await pool.query(
             'INSERT INTO users (name, email, created_at, dob, password, username) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
             [name, email, created_at, dob, hash, username]
           );
           const token = generateAccessToken(newUser.rows[0]);
           const session = await pool.query('INSERT INTO user_sessions (user_id, token, created_at) VALUES ($1, $2, $3) RETURNING *', [newUser.rows[0].id, token, new Date()]);
-          if (session.rows.length === 0) {
-            return res.status(500).json({ status: 500, message: 'Internal Server Error' });
-          }
           const profile = await pool.query('INSERT INTO user_profile (user_id, created_at) VALUES ($1, $2) RETURNING *', [newUser.rows[0].id, new Date()]);
-          if (profile.rows.length === 0) {
-            return res.status(500).json({ status: 500, message: 'Internal Server Error' });
-          }
           const mood = await pool.query('INSERT INTO user_mood (user_id, created_at) VALUES ($1, $2) RETURNING *', [newUser.rows[0].id, new Date()]);
-          if (mood.rows.length === 0) {
-            return res.status(500).json({ status: 500, message: 'Internal Server Error' });
-          }
+
           delete newUser.rows[0].password;
           newUser.rows[0].token = token;
           res.status(200).json({ status: 200, data: newUser.rows[0] });
@@ -452,6 +456,7 @@ app.get('/api/users/get_mood', checkToken, async (req, res) => {
 // post user_posts_memos
 app.post('/api/users/post_memos', checkToken, async (req, res) => {
   const { Memo } = req.body;
+
   try {
     const token = req.headers.authorization;
     const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
@@ -663,9 +668,8 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
 
 // get feed data from user_posts_memos and user_posts_moments of friends and user itself arranged by time
 app.get('/api/users/feed', checkToken, async (req, res) => {
-
   const currentDate = moment.utc(new Date()).local().format("YYYY-MM-DD");
-  const prevDate = moment.utc().local().subtract(1, 'day').format("YYYY-MM-DD");;
+  const prevDate = moment.utc().local().subtract(1, 'day').format("YYYY-MM-DD");
   try {
     const token = req.headers.authorization;
     const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
@@ -675,8 +679,7 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
 
     // get friends list
     const friends = await pool.query('SELECT * FROM friends_requests WHERE (req_by_id = $1 OR req_to_id = $1) AND status = $2', [session.rows[0].user_id, 'accepted']);
-    if (!friends.rows.length) return res.status(404).json({ status: 404, message: 'No friends found' });
-
+    console.log(prevDate, currentDate);
     // get friends posts
     const friends_posts = await Promise.all(friends.rows.map(async (item) => {
       const posts_memos = await pool.query('SELECT * FROM user_posts_memos WHERE user_id = $1 AND DATE(created_at) BETWEEN $2 AND $3 ORDER BY id DESC', [session.rows[0].user_id === item.req_by_id ? item.req_to_id : item.req_by_id, prevDate, currentDate]);
@@ -687,7 +690,6 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
         ...posts_memos?.rows?.map(item => ({ ...item, type: 'memo', name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, theme: profile.rows[0].theme })),
       ]
       const dataMoments = posts_moments?.rows?.map(item => ({ ...item, type: 'moment', name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic }));
-
       return [...dataMemos, dataMoments];
     }));
 
@@ -766,7 +768,7 @@ app.get('/api/users/user_profile_posts_moments', checkToken, async (req, res) =>
 
     const modifiedData = user_posts_moments.rows.map(item => ({
       ...item,
-      date: convertUtcTimestamp(item?.created_at),
+      date: item?.created_at,
       profile_pic: profile.rows[0].profile_pic,
       name: user.rows[0].name,
     })
@@ -860,7 +862,7 @@ const getNamePic = async (arr) => {
       profile_pic: profile.rows[0].profile_pic,
       name: user.rows[0].name,
       user_id: user.rows[0].id,
-      date: moment(convertUtcTimestamp(arr[i]?.created_at)).format('DD/MM/YY hh:mm a'),
+      date: arr[i]?.created_at,
     });
   }
   return newArr;
