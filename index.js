@@ -954,6 +954,29 @@ app.post('/api/users/report_user', checkToken, async (req, res) => {
   }
 })
 
+// delete user and all its data
+app.delete('/api/users/delete_user', checkToken, async (req, res) => {
+
+  try {
+    const token = req.headers.authorization;
+    const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
+
+    await pool.query('DELETE FROM user_posts_likes WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_posts_comments WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_posts_moments WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_posts_memos WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_mood WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_profile WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_sessions WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM friends_requests WHERE req_by_id = $1 OR req_to_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM users WHERE id = $1', [session.rows[0].user_id]);
+
+    return res.status(200).json({ status: 200, message: 'User deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ status: 500, message: "Internal Server Error" })
+  }
+})
+
 
 
 
