@@ -10,7 +10,7 @@ uploads/
 moments/
 
 # Environment variables
-.env
+# .env
 
 # Folders
 uploads/
