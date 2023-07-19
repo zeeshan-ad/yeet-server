@@ -79,6 +79,7 @@ CREATE TABLE user_posts_comments (
     user_id INT NOT NULL,
     post_id INT NOT NULL,
     post_type VARCHAR(255) NOT NULL,
+    is_view BOOLEAN DEFAULT false,
     comment TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
