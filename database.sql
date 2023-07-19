@@ -68,6 +68,7 @@ CREATE TABLE user_posts_likes (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
     post_id INT NOT NULL,
+    is_view BOOLEAN DEFAULT false,
     post_type VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
