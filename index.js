@@ -181,7 +181,7 @@ app.post('/api/users/create-account', async (req, res) => {
           const token = generateAccessToken(newUser.rows[0]);
           const session = await pool.query('INSERT INTO user_sessions (user_id, token, created_at) VALUES ($1, $2, $3) RETURNING *', [newUser.rows[0].id, token, new Date()]);
           const profile = await pool.query('INSERT INTO user_profile (user_id, created_at) VALUES ($1, $2) RETURNING *', [newUser.rows[0].id, new Date()]);
-          const mood = await pool.query('INSERT INTO user_mood (user_id, created_at) VALUES ($1, $2) RETURNING *', [newUser.rows[0].id, new Date()]);
+          const mood = await pool.query('INSERT INTO user_mood (user_id, mood created_at) VALUES ($1, $2, $3) RETURNING *', [newUser.rows[0].id, '', new Date()]);
 
           delete newUser.rows[0].password;
           newUser.rows[0].token = token;
@@ -1055,13 +1055,13 @@ app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [memo.rows[0].user_id]);
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [memo.rows[0].user_id]);
 
-      return res.status(200).json({ status: 200, message: 'Memo fetched successfully', data: { ...memo.rows[0], name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, post_type:"memo" } });
+      return res.status(200).json({ status: 200, message: 'Memo fetched successfully', data: { ...memo.rows[0], name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, post_type: "memo" } });
     } else {
       const moment = await pool.query('SELECT * FROM user_posts_moments WHERE id = $1', [post_id]);
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [moment.rows[0].user_id]);
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [moment.rows[0].user_id]);
 
-      return res.status(200).json({ status: 200, message: 'Moment fetched successfully', data: { ...moment.rows[0], name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, post_type:'moment' } });
+      return res.status(200).json({ status: 200, message: 'Moment fetched successfully', data: { ...moment.rows[0], name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, post_type: 'moment' } });
     }
 
   } catch (err) {
@@ -1071,7 +1071,7 @@ app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
 
 // api to set is_view to true for a particular post in user_posts_likes and user_posts_comments
 app.put('/api/users/set_is_view', checkToken, async (req, res) => {
-  const {post_id, post_type, interaction_type} = req.body;
+  const { post_id, post_type, interaction_type } = req.body;
 
   try {
     const token = req.headers.authorization;
