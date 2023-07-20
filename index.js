@@ -443,6 +443,14 @@ app.get('/api/users/get_mood', checkToken, async (req, res) => {
     if (profile.rows.length === 0) {
       return res.status(404).json({ status: 404, message: 'Profile not found', data: null });
     } else {
+      // if mood created_at is more than 1 day old, return null
+      const today = new Date();
+      const created_at = new Date(profile.rows[0].created_at);
+      const diffTime = Math.abs(today - created_at);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays > 1) {
+        return res.status(200).json({ status: 200, data: null });
+      }
       res.status(200).json({ status: 200, data: profile.rows[0] });
     }
   } catch (err) {
@@ -656,7 +664,14 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
       return { theme: profile?.rows[0]?.theme, userID: user?.rows[0]?.id, time: mood?.rows[0].created_at, mood: mood?.rows[0].mood, name: user?.rows[0].name, profile_pic: profile?.rows[0]?.profile_pic };
     }));
     // Sort the array by the 'time' property in descending order
-    const sortedData = friends_moods.sort((a, b) => new Date(b.time) - new Date(a.time));
+    const sortedData = friends_moods.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      // if mood created_at is more than 1 day old then return empty mood
+      sortedData.forEach((item) => {
+        const diff = moment.utc(new Date()).local().diff(moment.utc(item.created_at).local(), 'days');
+        if (diff > 1) item.mood = '';
+      });
+
     return res.status(200).json({ status: 200, data: sortedData.filter(item => item.mood !== '') });
   } catch (err) {
     res.status(500).json({ status: 500, message: 'Internal Server Error' });
