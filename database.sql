@@ -92,3 +92,14 @@ CREATE TABLE user_reports (
     reason TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- To store comment replied notifications
+CREATE TABLE replied_comments (
+    id SERIAL PRIMARY KEY,
+    comment_user_id INT NOT NULL,
+    replied_user_id INT NOT NULL,
+    post_id INT NOT NULL,
+    post_type VARCHAR(255) NOT NULL,
+    is_view BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

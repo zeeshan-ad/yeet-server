@@ -882,6 +882,32 @@ app.get('/api/users/get_comments', checkToken, async (req, res) => {
   }
 });
 
+// api to add notification for replied comments in db
+// CREATE TABLE replied_comments (
+//   id SERIAL PRIMARY KEY,
+//   comment_user_id INT NOT NULL,
+//   replied_user_id INT NOT NULL,
+//   post_id INT NOT NULL,
+//   post_type VARCHAR(255) NOT NULL,
+//   is_view BOOLEAN DEFAULT false,
+//   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+// );
+
+app.post('/api/users/add_replied_comment_notification', checkToken, async (req, res) => {
+  const { commentUserId, repliedUserId, postId, postType } = req.body;
+
+  try {
+    const token = req.headers.authorization;
+    const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
+    const notification = await pool.query('INSERT INTO replied_comments (comment_user_id, replied_user_id, post_id, post_type, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING *', [commentUserId, repliedUserId, postId, postType, new Date()]);
+
+    return res.status(200).json({ status: 200, message: 'Notification added successfully', data: notification.rows[0] });
+  } catch (err) {
+    res.status(500).json({ status: 500, message: 'Internal Server Error' });
+  }
+});
+
+
 // api to delete moment along with all its comments and likes
 app.delete('/api/users/delete_moment', checkToken, async (req, res) => {
   const { momentId } = req.query;
@@ -1030,8 +1056,19 @@ app.get('/api/users/get_notifications', checkToken, async (req, res) => {
       return { name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, ...item, interaction_type: 'commented' };
     }))
 
+    // get notfication from replied_comments table where comment_user_id is session user_id
+    const repliedComments = await pool.query('SELECT * FROM replied_comments WHERE replied_user_id = $1', [session.rows[0].user_id]);
+
+    // get user name and profile pic of comment_user_id
+    const data3 = await Promise.all(repliedComments.rows.map(async (item) => {
+      const user = await pool.query('SELECT * FROM users WHERE id = $1', [item.comment_user_id]);
+      const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [item.comment_user_id]);
+      return { name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, ...item, interaction_type: 'replied' };
+    }))
+
+
     // merge data and data2 and sort as per created_at
-    const finalData = [...data, ...data2].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const finalData = [...data, ...data2, ...data3].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     return res.status(200).json({ status: 200, message: 'Notifications fetched successfully', data: finalData });
 
@@ -1056,7 +1093,7 @@ app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [memo.rows[0].user_id]);
 
       return res.status(200).json({ status: 200, message: 'Memo fetched successfully', data: { ...memo.rows[0], name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, post_type: "memo" } });
-    } else {
+    } else if (post_type === 'moment') {
       const moment = await pool.query('SELECT * FROM user_posts_moments WHERE id = $1', [post_id]);
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [moment.rows[0].user_id]);
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [moment.rows[0].user_id]);
@@ -1073,6 +1110,7 @@ app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
 app.put('/api/users/set_is_view', checkToken, async (req, res) => {
   const { post_id, post_type, interaction_type } = req.body;
 
+
   try {
     const token = req.headers.authorization;
     const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
@@ -1080,14 +1118,18 @@ app.put('/api/users/set_is_view', checkToken, async (req, res) => {
     if (post_type === 'memo') {
       if (interaction_type === 'liked') {
         await pool.query('UPDATE user_posts_likes SET is_view = $1 WHERE post_id = $2 AND user_id != $3', [true, post_id, session.rows[0].user_id]);
-      } else {
+      } else if (interaction_type === 'commented') {
         await pool.query('UPDATE user_posts_comments SET is_view = $1 WHERE post_id = $2 AND user_id != $3', [true, post_id, session.rows[0].user_id]);
+      } else if (interaction_type === 'replied') {
+        await pool.query('UPDATE replied_comments SET is_view = $1 WHERE post_id = $2 AND replied_user_id = $3 AND post_type = $4', [true, post_id, session.rows[0].user_id, post_type]);
       }
-    } else {
+    } else if (post_type === 'moment') {
       if (interaction_type === 'liked') {
         await pool.query('UPDATE user_posts_likes SET is_view = $1 WHERE post_id = $2 AND user_id != $3', [true, post_id, session.rows[0].user_id]);
-      } else {
+      } else if (interaction_type === 'commented') {
         await pool.query('UPDATE user_posts_comments SET is_view = $1 WHERE post_id = $2 AND user_id != $3', [true, post_id, session.rows[0].user_id]);
+      } else if (interaction_type === 'replied') {
+        await pool.query('UPDATE replied_comments SET is_view = $1 WHERE post_id = $2 AND replied_user_id = $3 AND post_type = $4', [true, post_id, session.rows[0].user_id, post_type]);
       }
     }
 
