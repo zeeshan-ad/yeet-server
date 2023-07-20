@@ -666,11 +666,11 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
     // Sort the array by the 'time' property in descending order
     const sortedData = friends_moods.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-      // if mood created_at is more than 1 day old then return empty mood
-      sortedData.forEach((item) => {
-        const diff = moment.utc(new Date()).local().diff(moment.utc(item.created_at).local(), 'days');
-        if (diff > 1) item.mood = '';
-      });
+    // if mood created_at is more than 1 day old then return empty mood
+    sortedData.forEach((item) => {
+      const diff = moment.utc(new Date()).diff(moment.utc(item.created_at).local(), 'days');
+      if (diff > 1) item.mood = '';
+    });
 
     return res.status(200).json({ status: 200, data: sortedData.filter(item => item.mood !== '') });
   } catch (err) {
@@ -891,7 +891,10 @@ app.get('/api/users/get_comments', checkToken, async (req, res) => {
     const comments = await pool.query('SELECT * FROM user_posts_comments WHERE post_id = $1 AND post_type = $2', [postId, postType]);
     const commentsWithUser = await getNamePic(comments.rows);
 
-    return res.status(200).json({ status: 200, message: 'Comments fetched successfully', data: commentsWithUser });
+    // sort comments from older to newer created_at
+
+
+    return res.status(200).json({ status: 200, message: 'Comments fetched successfully', data: commentsWithUser.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)) });
   } catch (err) {
     res.status(500).json({ status: 500, message: 'Internal Server Error' });
   }
@@ -1108,8 +1111,12 @@ app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [memo.rows[0].user_id]);
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [memo.rows[0].user_id]);
 
-      return res.status(200).json({ status: 200, message: 'Memo fetched successfully', data: { ...memo.rows[0], name: user.rows[0].name, 
-        profile_pic: profile.rows[0]?.profile_pic, post_type: "memo", theme: profile?.rows[0]?.theme } });
+      return res.status(200).json({
+        status: 200, message: 'Memo fetched successfully', data: {
+          ...memo.rows[0], name: user.rows[0].name,
+          profile_pic: profile.rows[0]?.profile_pic, post_type: "memo", theme: profile?.rows[0]?.theme
+        }
+      });
     } else if (post_type === 'moment') {
       const moment = await pool.query('SELECT * FROM user_posts_moments WHERE id = $1', [post_id]);
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [moment.rows[0].user_id]);
