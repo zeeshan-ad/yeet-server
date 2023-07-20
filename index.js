@@ -513,7 +513,17 @@ app.get('/api/users/search', checkToken, async (req, res) => {
       return { id: user?.id, name: user?.name, username: user?.username, profile_pic: profile?.rows[0]?.profile_pic };
     }));
 
-    res.status(200).json({ status: 200, data: data });
+    // Select all blocked users
+    const blockedUsers = await pool.query('SELECT blocked_user_id FROM blocked_users WHERE user_id = $1', [session.rows[0].user_id]);
+    const blockedUsers2 = await pool.query('SELECT user_id FROM blocked_users WHERE blocked_user_id = $1', [session.rows[0].user_id]);
+
+    const blockedUserArray = blockedUsers.rows.map((user) => user.blocked_user_id);
+    const blockedUserArray2 = blockedUsers2.rows.map((user) => user.user_id);
+
+    // remove blocked users from data
+    const filteredData = data.filter((user) => ![...blockedUserArray, ...blockedUserArray2].includes(user.id));
+
+    res.status(200).json({ status: 200, data: filteredData });
   } catch (err) {
     res.status(500).json({ status: 500, message: 'Internal Server Error' });
   }
@@ -667,7 +677,7 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
     const sortedData = friends_moods.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     // if mood created_at is more than 1 day old then return empty mood
-   const finalData = sortedData.forEach((item) => {
+    const finalData = sortedData.forEach((item) => {
       const diff = moment.utc(new Date()).diff(moment.utc(item.created_at).local(), 'days');
       if (diff > 1) item.mood = '';
     });
@@ -1089,7 +1099,16 @@ app.get('/api/users/get_notifications', checkToken, async (req, res) => {
     // merge data and data2 and sort as per created_at
     const finalData = [...data, ...data2, ...data3].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    return res.status(200).json({ status: 200, message: 'Notifications fetched successfully', data: finalData });
+    // Select all blocked users
+    const blockedUsers = await pool.query('SELECT blocked_user_id FROM blocked_users WHERE user_id = $1', [session.rows[0].user_id]);
+    const blockedUsers2 = await pool.query('SELECT user_id FROM blocked_users WHERE blocked_user_id = $1', [session.rows[0].user_id]);
+
+    const blockedUserArray = [...blockedUsers.rows.map((user) => user.blocked_user_id), ...blockedUsers2.rows.map((user) => user.user_id)];
+
+    // remove blocked users from finalData
+    const filteredData = finalData.filter((item) => !blockedUserArray.includes(item.user_id || item.comment_user_id || item.replied_user_id));
+
+    return res.status(200).json({ status: 200, message: 'Notifications fetched successfully', data: filteredData });
 
   } catch (err) {
     res.status(500).json({ status: 500, message: "Internal Server Error" })
@@ -1163,6 +1182,88 @@ app.put('/api/users/set_is_view', checkToken, async (req, res) => {
     res.status(500).json({ status: 500, message: "Internal Server Error" })
   }
 })
+
+// api to block user
+// CREATE TABLE blocked_users (
+//   id SERIAL PRIMARY KEY,
+//   user_id INT NOT NULL,
+//   blocked_user_id INT NOT NULL,
+//   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+// );
+
+app.post('/api/users/block_user', checkToken, async (req, res) => {
+  const { blocked_user_id } = req.body;
+
+
+  try {
+    const token = req.headers.authorization;
+    const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
+    console.log(session.rows[0].user_id, blocked_user_id)
+    await pool.query('INSERT INTO blocked_users (user_id, blocked_user_id, created_at) VALUES ($1, $2, $3)', [session.rows[0].user_id, blocked_user_id, new Date()]);
+    return res.status(200).json({ status: 200, message: 'User blocked successfully' });
+
+  } catch (err) {
+    res.status(500).json({ status: 500, message: "Internal Server Error" })
+  }
+})
+
+
+// get list of blocked users
+app.get('/api/users/get_blocked_users', checkToken, async (req, res) => {
+
+  try {
+    const token = req.headers.authorization;
+    const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
+
+    const blocked_users = await pool.query('SELECT * FROM blocked_users WHERE user_id = $1', [session.rows[0].user_id]);
+
+    // get blocked users name and profile pic
+    const blocked_users_data = await Promise.all(blocked_users.rows.map(async (user) => {
+      const user_data = await pool.query('SELECT * FROM users WHERE id = $1', [user.blocked_user_id]);
+      const profile_data = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [user.blocked_user_id]);
+      return { ...user, name: user_data.rows[0].name, profile_pic: profile_data.rows[0].profile_pic };
+    }));
+
+    return res.status(200).json({ status: 200, message: 'Blocked users fetched successfully', data: blocked_users_data });
+
+  } catch (err) {
+    res.status(500).json({ status: 500, message: "Internal Server Error" })
+  }
+})
+
+// get list of block user by user_id
+app.get('/api/users/get_blocked_users_by_user_id', checkToken, async (req, res) => {
+  const { user_id } = req.query;
+
+  try {
+    const blocked_users = await pool.query('SELECT * FROM blocked_users WHERE user_id = $1', [user_id]);
+
+    console.log(blocked_users.rows)
+    return res.status(200).json({ status: 200, message: 'Blocked users fetched successfully', data: blocked_users.rows });
+
+  } catch (err) {
+    res.status(500).json({ status: 500, message: "Internal Server Error" })
+  }
+})
+
+// api to unblock user
+app.delete('/api/users/unblock_user', checkToken, async (req, res) => {
+  const { blocked_user_id } = req.body;
+
+  console.log(blocked_user_id)
+
+  try {
+    const token = req.headers.authorization;
+    const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
+
+    await pool.query('DELETE FROM blocked_users WHERE user_id = $1 AND blocked_user_id = $2', [session.rows[0].user_id, blocked_user_id]);
+    return res.status(200).json({ status: 200, message: 'User unblocked successfully' });
+
+  } catch (err) {
+    res.status(500).json({ status: 500, message: "Internal Server Error" })
+  }
+})
+
 
 
 

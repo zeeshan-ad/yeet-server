@@ -103,3 +103,11 @@ CREATE TABLE replied_comments (
     is_view BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- table To block users
+CREATE TABLE blocked_users (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    blocked_user_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
