@@ -1059,7 +1059,7 @@ app.get('/api/users/get_notifications', checkToken, async (req, res) => {
     // get notfication from replied_comments table where comment_user_id is session user_id
     const repliedComments = await pool.query('SELECT * FROM replied_comments WHERE replied_user_id = $1', [session.rows[0].user_id]);
 
-    
+
     // get user name and profile pic of comment_user_id
     const data3 = await Promise.all(repliedComments.rows.map(async (item) => {
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [item.comment_user_id]);
@@ -1093,7 +1093,8 @@ app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [memo.rows[0].user_id]);
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [memo.rows[0].user_id]);
 
-      return res.status(200).json({ status: 200, message: 'Memo fetched successfully', data: { ...memo.rows[0], name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, post_type: "memo" } });
+      return res.status(200).json({ status: 200, message: 'Memo fetched successfully', data: { ...memo.rows[0], name: user.rows[0].name, 
+        profile_pic: profile.rows[0]?.profile_pic, post_type: "memo", theme: profile?.rows[0]?.theme } });
     } else if (post_type === 'moment') {
       const moment = await pool.query('SELECT * FROM user_posts_moments WHERE id = $1', [post_id]);
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [moment.rows[0].user_id]);
