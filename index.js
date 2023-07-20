@@ -1059,6 +1059,7 @@ app.get('/api/users/get_notifications', checkToken, async (req, res) => {
     // get notfication from replied_comments table where comment_user_id is session user_id
     const repliedComments = await pool.query('SELECT * FROM replied_comments WHERE replied_user_id = $1', [session.rows[0].user_id]);
 
+    
     // get user name and profile pic of comment_user_id
     const data3 = await Promise.all(repliedComments.rows.map(async (item) => {
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [item.comment_user_id]);
