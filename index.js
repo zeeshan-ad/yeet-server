@@ -667,12 +667,12 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
     const sortedData = friends_moods.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     // if mood created_at is more than 1 day old then return empty mood
-    sortedData.forEach((item) => {
+   const finalData = sortedData.forEach((item) => {
       const diff = moment.utc(new Date()).diff(moment.utc(item.created_at).local(), 'days');
       if (diff > 1) item.mood = '';
     });
 
-    return res.status(200).json({ status: 200, data: sortedData.filter(item => item.mood !== '') });
+    return res.status(200).json({ status: 200, data: finalData.filter(item => item.mood !== '') });
   } catch (err) {
     res.status(500).json({ status: 500, message: 'Internal Server Error' });
   }
