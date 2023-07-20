@@ -424,7 +424,8 @@ app.put('/api/users/update_mood', checkToken, async (req, res) => {
   try {
     const token = req.headers.authorization;
     const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
-    const profile = await pool.query('UPDATE user_mood SET mood = $1 AND created_at = $3 WHERE user_id = $2 RETURNING *', [text, session.rows[0].user_id, new Date()]);
+
+    const profile = await pool.query('UPDATE user_mood SET mood = $1, created_at = $2 WHERE user_id = $3 RETURNING *', [text, new Date(), session?.rows[0]?.user_id]);
     if (profile.rows.length === 0) {
       return res.status(500).json({ status: 500, message: 'Internal Server Error' });
     }
