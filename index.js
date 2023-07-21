@@ -181,7 +181,7 @@ app.post('/api/users/create-account', async (req, res) => {
           const token = generateAccessToken(newUser.rows[0]);
           const session = await pool.query('INSERT INTO user_sessions (user_id, token, created_at) VALUES ($1, $2, $3) RETURNING *', [newUser.rows[0].id, token, new Date()]);
           const profile = await pool.query('INSERT INTO user_profile (user_id, created_at) VALUES ($1, $2) RETURNING *', [newUser.rows[0].id, new Date()]);
-          const mood = await pool.query('INSERT INTO user_mood (user_id, mood created_at) VALUES ($1, $2, $3) RETURNING *', [newUser.rows[0].id, '', new Date()]);
+          const mood = await pool.query('INSERT INTO user_mood (user_id, mood, created_at) VALUES ($1, $2, $3) RETURNING *', [newUser.rows[0].id, '', new Date()]);
 
           delete newUser.rows[0].password;
           newUser.rows[0].token = token;
@@ -678,12 +678,12 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
     const sortedData = friends_moods.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     // if mood created_at is more than 1 day old then return empty mood
-    const finalData = sortedData.forEach((item) => {
-      const diff = moment.utc(new Date()).diff(moment.utc(item.created_at).local(), 'days');
-      if (diff > 1) item.mood = '';
-    });
+    // const finalData = sortedData.forEach((item) => {
+    //   const diff = moment.utc(new Date()).diff(moment.utc(item.created_at), 'days');
+    //   if (diff > 1) item.mood = '';
+    // });
 
-    return res.status(200).json({ status: 200, data: finalData.filter(item => item.mood !== '') });
+    return res.status(200).json({ status: 200, data: sortedData.filter(item => item.mood !== '') });
   } catch (err) {
     res.status(500).json({ status: 500, message: 'Internal Server Error' });
   }
