@@ -48,7 +48,7 @@ function convertToLocalTime(array) {
   return array.map(obj => {
     const utcTimestamp = new Date(obj.created_at);
     const localTimestamp = utcTimestamp.toLocaleString();
-    return { ...obj, created_at: localTimestamp };
+    return { ...obj, created_at: utcTimestamp };
   });
 }
 
@@ -692,7 +692,7 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
 // get feed data from user_posts_memos and user_posts_moments of friends and user itself arranged by time
 app.get('/api/users/feed', checkToken, async (req, res) => {
   const currentDate = moment.utc(new Date()).local().format("YYYY-MM-DD");
-  const prevDate = moment.utc().local().subtract(1, 'day').format("YYYY-MM-DD");
+  const prevDate = moment.utc().subtract(1, 'day').format("YYYY-MM-DD");
   try {
     const token = req.headers.authorization;
     const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
