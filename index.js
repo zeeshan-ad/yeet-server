@@ -32,18 +32,7 @@ const uploadMoments = multer({ storage: storageMoments });
 
 const upload = multer({ storage: storage });
 
-function convertToLocalTimezone(array) {
-  return array.map((item) => {
-    if (Array.isArray(item)) {
-      return convertToLocalTimezone(item);
-    } else if (item.created_at) {
-      const localDate = new Date(item.created_at).toLocaleString();
-      return { ...item, created_at: localDate };
-    } else {
-      return item;
-    }
-  });
-}
+
 function convertToLocalTime(array) {
   return array.map(obj => {
     const utcTimestamp = new Date(obj.created_at);
@@ -66,7 +55,7 @@ function separateArrayByDate(arr) {
       for (let j = 0; j < item?.length; j++) {
         const obj = item[j];
         const created_at = obj.created_at;
-        const day = created_at.split(",")[0].trim();
+        const day = created_at.split(" ")[0].trim();
 
         if (!tempDict[day]) {
           tempDict[day] = [];
@@ -90,7 +79,7 @@ function getLatestObjectsPerDay(array) {
   const latestObjects = {};
 
   array.forEach(obj => {
-    const date = new Date(obj.created_at).toLocaleDateString();
+    const date = new Date(obj.created_at).toDateString();
     if (!latestObjects[date] || new Date(obj.created_at) > new Date(latestObjects[date].created_at)) {
       latestObjects[date] = obj;
     }
@@ -105,10 +94,6 @@ function compareCreatedAt(a, b) {
   return dateB - dateA;
 }
 
-function convertUtcTimestamp(utcTimestamp) {
-  const formattedTimestamp = moment.utc(utcTimestamp).local().format('M/D/YYYY, h:mm:ss A');
-  return formattedTimestamp;
-}
 
 app.use('/uploads', express.static(__dirname + '/uploads'));
 app.use('/moments', express.static(__dirname + '/moments'));
@@ -702,8 +687,10 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
 
 // get feed data from user_posts_memos and user_posts_moments of friends and user itself arranged by time
 app.get('/api/users/feed', checkToken, async (req, res) => {
-  const currentDate = moment.utc(new Date()).local().format("YYYY-MM-DD");
-  const prevDate = moment.utc().local().subtract(1, 'day').format("YYYY-MM-DD");
+  const { timezone } = req.query;
+  const currentDate = moment.utc(new Date()).format("YYYY-MM-DD");
+  const prevDate = moment.utc().subtract(1, 'day').format("YYYY-MM-DD");
+
   try {
     const token = req.headers.authorization;
     const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
@@ -720,9 +707,20 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [session.rows[0].user_id === item.req_by_id ? item.req_to_id : item.req_by_id]);
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [session.rows[0].user_id === item.req_by_id ? item.req_to_id : item.req_by_id]);
       const dataMemos = [
-        ...posts_memos?.rows?.map(item => ({ ...item, type: 'memo', name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, theme: profile.rows[0].theme })),
+        ...posts_memos?.rows?.map(item => ({
+          ...item, type: 'memo',
+          name: user.rows[0].name,
+          profile_pic: profile.rows[0].profile_pic,
+          theme: profile.rows[0].theme,
+          created_at: moment.utc(item.created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss"),
+        })),
       ]
-      const dataMoments = posts_moments?.rows?.map(item => ({ ...item, type: 'moment', name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic }));
+      const dataMoments = posts_moments?.rows?.map(item => ({
+        ...item, type: 'moment',
+        name: user.rows[0].name,
+        profile_pic: profile.rows[0].profile_pic,
+        created_at: moment.utc(item.created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss"),
+      }));
       return [...dataMemos, dataMoments];
     }));
 
@@ -733,15 +731,28 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
     const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [session.rows[0].user_id]);
 
     const dataMemos = [
-      ...user_posts_memos?.rows?.map(item => ({ ...item, type: 'memo', name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, theme: profile.rows[0].theme })),
+      ...user_posts_memos?.rows?.map(item => ({
+        ...item, type: 'memo',
+        name: user.rows[0].name,
+        profile_pic: profile.rows[0].profile_pic,
+        theme: profile.rows[0].theme,
+        created_at: moment.utc(item.created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss"),
+      })),
     ]
     const dataMoments = [
-      ...user_posts_moments?.rows?.map(item => ({ ...item, type: 'moment', name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic })),
+      ...user_posts_moments?.rows?.map(item => ({
+        ...item,
+        type: 'moment',
+        name: user.rows[0].name,
+        profile_pic: profile.rows[0].profile_pic,
+        created_at: moment.utc(item.created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss"),
+      })),
     ]
 
     const data = [...dataMemos, dataMoments, ...friends_posts.flat()];
 
-    const modifiedData = separateArrayByDate(convertToLocalTimezone(data));
+
+    const modifiedData = separateArrayByDate(data);
 
     return res.status(200).json({ status: 200, data: modifiedData.sort(compareCreatedAt) });
   } catch (err) {
@@ -755,6 +766,7 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
 app.get('/api/users/user_profile_posts', checkToken, async (req, res) => {
 
   const userId = req.query.userId;
+  const timezone = req.query.timezone;
 
   try {
     // get all memos of the user as array of objects
@@ -764,20 +776,27 @@ app.get('/api/users/user_profile_posts', checkToken, async (req, res) => {
     const user_posts_moments = await pool.query('SELECT * FROM user_posts_moments WHERE user_id = $1 ORDER BY id DESC', [userId]);
     const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [userId]);
     const user = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
-    const localTimeMoments = getLatestObjectsPerDay(convertToLocalTime(user_posts_moments.rows));
-    const localTimeMemos = convertToLocalTime(user_posts_memos.rows);
+
+    // convert user_posts_memos and user_posts_moments to local time as per timezone
+    const memosTimeZone = user_posts_memos.rows.map(item => ({ ...item, created_at: moment.utc(item.created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss") }));
+    const momentsTimeZone = user_posts_moments.rows.map(item => ({ ...item, created_at: moment.utc(item.created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss") }));
+
+
+    const localTimeMoments = separateArrayByDate([momentsTimeZone]);
 
     if (!user_posts_memos.rows.length && !user_posts_moments.rows.length)
       return res.status(404).json({ status: 404, message: 'No data found' });
 
     return res.status(200).json({
       status: 200, data: {
-        memos: localTimeMemos.map(item => ({
+        memos: memosTimeZone.map(item => ({
           ...item,
           profile_pic: profile?.rows?.[0]?.profile_pic,
           theme: profile?.rows?.[0]?.theme,
           name: user?.rows?.[0]?.name,
-        })), moments: localTimeMoments
+        })),
+        moments: localTimeMoments.map(item => item[0]),
+        momentsGroup: localTimeMoments,
       }
     });
 
@@ -792,6 +811,8 @@ app.get('/api/users/user_profile_posts_moments', checkToken, async (req, res) =>
 
   const userId = req.query.userId;
   const date = req.query.date;
+  const timezone = req.query.timezone;
+  
   try {
     // get all memos of the user as array of objects
     const user_posts_moments = await pool.query('SELECT * FROM user_posts_moments WHERE user_id = $1 AND DATE(created_at) = $2 ORDER BY id DESC', [userId, date]);
@@ -916,8 +937,6 @@ app.get('/api/users/get_comments', checkToken, async (req, res) => {
     const commentsWithUser = await getNamePic(comments.rows);
 
     // sort comments from older to newer created_at
-
-
     return res.status(200).json({ status: 200, message: 'Comments fetched successfully', data: commentsWithUser.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)) });
   } catch (err) {
     res.status(500).json({ status: 500, message: 'Internal Server Error' });
