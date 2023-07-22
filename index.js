@@ -161,7 +161,7 @@ app.get('/api/users/verify-username', async (req, res) => {
 
 // Insert a user in users table
 app.post('/api/users/create-account', async (req, res) => {
-  const { name, email, username, password, created_at, dob } = req.body;
+  const { name, email, username, password, dob } = req.body;
 
   try {
     bcrypt.genSalt(10, function (err, salt) {
@@ -176,12 +176,12 @@ app.post('/api/users/create-account', async (req, res) => {
 
           const newUser = await pool.query(
             'INSERT INTO users (name, email, created_at, dob, password, username) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-            [name, email, created_at, dob, hash, username]
+            [name, email, new Date(), dob, hash, username]
           );
           const token = generateAccessToken(newUser.rows[0]);
-          const session = await pool.query('INSERT INTO user_sessions (user_id, token, created_at) VALUES ($1, $2, $3) RETURNING *', [newUser.rows[0].id, token, new Date()]);
-          const profile = await pool.query('INSERT INTO user_profile (user_id, created_at) VALUES ($1, $2) RETURNING *', [newUser.rows[0].id, new Date()]);
-          const mood = await pool.query('INSERT INTO user_mood (user_id, mood, created_at) VALUES ($1, $2, $3) RETURNING *', [newUser.rows[0].id, '', new Date()]);
+          await pool.query('INSERT INTO user_sessions (user_id, token, created_at) VALUES ($1, $2, $3) RETURNING *', [newUser.rows[0].id, token, new Date()]);
+          await pool.query('INSERT INTO user_profile (user_id, created_at) VALUES ($1, $2) RETURNING *', [newUser.rows[0].id, new Date()]);
+          await pool.query('INSERT INTO user_mood (user_id, mood, created_at) VALUES ($1, $2, $3) RETURNING *', [newUser.rows[0].id, '', new Date()]);
 
           delete newUser.rows[0].password;
           newUser.rows[0].token = token;
@@ -548,10 +548,16 @@ app.get('/api/users/other_profile', checkToken, async (req, res) => {
     // get total friends
     const friends = await pool.query('SELECT * FROM friends_requests WHERE (req_by_id = $1 OR req_to_id = $1) AND (status = $2)', [userId, "accepted"]);
     delete user.rows[0].password;
+
     if (!profile.rows.length || !user.rows.length)
       return res.status(404).json({ status: 404, message: 'Profile not found' });
     else
-      return res.status(200).json({ status: 200, data: { ...profile.rows[0], ...user.rows[0], mood: mood.rows[0]?.mood ? mood.rows[0]?.mood : null, totalFriends: friends.rows.length } });
+      return res.status(200).json({
+        status: 200, data: {
+          ...profile.rows[0], ...user.rows[0],
+          mood: mood.rows[0]?.mood ? mood.rows[0]?.mood : null, totalFriends: friends.rows.length
+        }
+      });
   } catch (err) {
     res.status(500).json({ status: 500, message: 'Internal Server Error' });
   }
@@ -731,7 +737,7 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
     const data = [...dataMemos, dataMoments, ...friends_posts.flat()];
 
     const modifiedData = separateArrayByDate(convertToLocalTimezone(data));
-    
+
     return res.status(200).json({ status: 200, data: modifiedData.sort(compareCreatedAt) });
   } catch (err) {
     res.status(500).json({ status: 500, message: 'Internal Server Error' });
@@ -1200,7 +1206,6 @@ app.post('/api/users/block_user', checkToken, async (req, res) => {
   try {
     const token = req.headers.authorization;
     const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
-    console.log(session.rows[0].user_id, blocked_user_id)
     await pool.query('INSERT INTO blocked_users (user_id, blocked_user_id, created_at) VALUES ($1, $2, $3)', [session.rows[0].user_id, blocked_user_id, new Date()]);
     return res.status(200).json({ status: 200, message: 'User blocked successfully' });
 
@@ -1240,7 +1245,6 @@ app.get('/api/users/get_blocked_users_by_user_id', checkToken, async (req, res) 
   try {
     const blocked_users = await pool.query('SELECT * FROM blocked_users WHERE user_id = $1', [user_id]);
 
-    console.log(blocked_users.rows)
     return res.status(200).json({ status: 200, message: 'Blocked users fetched successfully', data: blocked_users.rows });
 
   } catch (err) {
@@ -1251,8 +1255,6 @@ app.get('/api/users/get_blocked_users_by_user_id', checkToken, async (req, res) 
 // api to unblock user
 app.delete('/api/users/unblock_user', checkToken, async (req, res) => {
   const { blocked_user_id } = req.body;
-
-  console.log(blocked_user_id)
 
   try {
     const token = req.headers.authorization;
