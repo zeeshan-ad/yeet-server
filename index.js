@@ -124,7 +124,7 @@ app.get('/', (req, res) => {
   res.send('Welcome to the server');
 });
 
-// verify email exits or not
+// verify if email exits or not
 app.get('/api/users/verify-email', async (req, res) => {
   const email = req.query.email;
   try {
@@ -139,7 +139,9 @@ app.get('/api/users/verify-email', async (req, res) => {
   }
 });
 
-// verify username exits or not
+
+
+// verify if username exits or not-------------------------------------------------------------------------------
 app.get('/api/users/verify-username', async (req, res) => {
   const username = req.query.username;
 
@@ -159,7 +161,7 @@ app.get('/api/users/verify-username', async (req, res) => {
 });
 
 
-// Insert a user in users table
+// create account-------------------------------------------------------------------------------
 app.post('/api/users/create-account', async (req, res) => {
   const { name, email, username, password, dob } = req.body;
 
@@ -196,7 +198,7 @@ app.post('/api/users/create-account', async (req, res) => {
   }
 });
 
-// Login
+// Login-------------------------------------------------------------------------------
 app.get('/api/users/login', async (req, res) => {
 
   const { email, password } = req.query;
@@ -236,10 +238,7 @@ async function checkToken(req, res, next) {
   next();
 }
 
-// generate otp and send it in user's email and store it in user_otp table
-
-
-
+// generate otp and send it in user's email and store it in user_otp table-------------------------------------------------------------------------------
 app.post('/api/users/forgot-password', async (req, res) => {
   const { email } = req.body;
   try {
@@ -247,7 +246,7 @@ app.post('/api/users/forgot-password', async (req, res) => {
     if (user.rows.length === 0) {
       return res.status(404).json({ status: 404, message: 'User not found' });
     }
-    const deleteInfo = await pool.query('DELETE FROM user_otp WHERE user_id = $1', [user.rows[0].id]);
+    await pool.query('DELETE FROM user_otp WHERE user_id = $1', [user.rows[0].id]);
     const otp = Math.floor(100000 + Math.random() * 900000);
     const otpInfo = await pool.query('INSERT INTO user_otp (user_id, otp) VALUES ($1, $2) RETURNING *', [user.rows[0].id, otp]);
     if (otpInfo.rows.length === 0) {
@@ -282,7 +281,7 @@ app.post('/api/users/forgot-password', async (req, res) => {
   }
 });
 
-// verify otp
+// verify otp-------------------------------------------------------------------------------
 app.post('/api/users/verify-otp', async (req, res) => {
   const { email, otp } = req.body;
   try {
@@ -304,7 +303,7 @@ app.post('/api/users/verify-otp', async (req, res) => {
   }
 });
 
-// reset password
+// reset password-------------------------------------------------------------------------------
 app.post('/api/users/reset-password', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -312,7 +311,7 @@ app.post('/api/users/reset-password', async (req, res) => {
     if (user.rows.length === 0) {
       return res.status(404).json({ status: 404, message: 'User not found' });
     }
-    const deleteInfo = await pool.query('DELETE FROM user_otp WHERE user_id = $1', [user.rows[0].id]);
+    await pool.query('DELETE FROM user_otp WHERE user_id = $1', [user.rows[0].id]);
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     const updateInfo = await pool.query('UPDATE users SET password = $1 WHERE email = $2 RETURNING *', [hashedPassword, email]);
@@ -327,7 +326,7 @@ app.post('/api/users/reset-password', async (req, res) => {
 
 
 
-// Logout
+// Logout-------------------------------------------------------------------------------
 app.delete('/api/users/logout', checkToken, async (req, res) => {
 
   const token = req.headers.authorization;
@@ -344,7 +343,7 @@ app.delete('/api/users/logout', checkToken, async (req, res) => {
 });
 
 
-// Get User Profile
+// Get User Profile-------------------------------------------------------------------------------
 app.get('/api/users/profile', checkToken, async (req, res) => {
   try {
     const token = req.headers.authorization;
@@ -365,8 +364,7 @@ app.get('/api/users/profile', checkToken, async (req, res) => {
   }
 });
 
-// Update User Profile
-
+// Update User Profile Picture-------------------------------------------------------------------------------
 app.put('/api/users/dp', upload.single('profile_pic'), async (req, res) => {
   try {
     const token = req.headers.authorization;
@@ -390,19 +388,7 @@ app.put('/api/users/dp', upload.single('profile_pic'), async (req, res) => {
   }
 });
 
-// post user_posts_moments 
-app.post('/api/users/post_moments', uploadMoments.single('moment'), checkToken, async (req, res) => {
-  const token = req.headers.authorization;
-  const { caption } = req.query;
-  const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
-  const moment = await pool.query('INSERT INTO user_posts_moments (user_id, moment, created_at, caption) VALUES ($1, $2, $3, $4) RETURNING *', [session.rows[0].user_id, `/moments/${req.file.filename}`, new Date(), caption]);
-  if (moment.rows.length === 0) {
-    return res.status(500).json({ status: 500, message: 'Internal Server Error' });
-  }
-  res.status(200).json({ status: 200, data: moment.rows[0] });
-});
-
-
+// Update User Profile-------------------------------------------------------------------------------
 app.put('/api/users/profile-update', checkToken, async (req, res) => {
   const { bio, theme, is_public } = req.body;
   try {
@@ -418,7 +404,21 @@ app.put('/api/users/profile-update', checkToken, async (req, res) => {
   }
 });
 
-// Update user_mood
+
+// post moments------------------------------------------------------------------------------- 
+app.post('/api/users/post_moments', uploadMoments.single('moment'), checkToken, async (req, res) => {
+  const token = req.headers.authorization;
+  const { caption } = req.query;
+  const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
+  const moment = await pool.query('INSERT INTO user_posts_moments (user_id, moment, created_at, caption) VALUES ($1, $2, $3, $4) RETURNING *', [session.rows[0].user_id, `/moments/${req.file.filename}`, new Date(), caption]);
+  if (moment.rows.length === 0) {
+    return res.status(500).json({ status: 500, message: 'Internal Server Error' });
+  }
+  res.status(200).json({ status: 200, data: moment.rows[0] });
+});
+
+
+// Update mood-------------------------------------------------------------------------------
 app.put('/api/users/update_mood', checkToken, async (req, res) => {
   const { text } = req.body;
   try {
@@ -435,7 +435,7 @@ app.put('/api/users/update_mood', checkToken, async (req, res) => {
   }
 });
 
-// get user_mood
+// get mood-------------------------------------------------------------------------------
 app.get('/api/users/get_mood', checkToken, async (req, res) => {
   try {
     const token = req.headers.authorization;
@@ -459,7 +459,7 @@ app.get('/api/users/get_mood', checkToken, async (req, res) => {
   }
 });
 
-// post user_posts_memos
+// post memos-------------------------------------------------------------------------------
 app.post('/api/users/post_memos', checkToken, async (req, res) => {
   const { Memo } = req.body;
 
@@ -476,7 +476,7 @@ app.post('/api/users/post_memos', checkToken, async (req, res) => {
   }
 });
 
-// get user_posts_memos
+// get user memos-------------------------------------------------------------------------------
 app.get('/api/users/get_memos', checkToken, async (req, res) => {
   try {
     const token = req.headers.authorization;
@@ -498,7 +498,7 @@ app.get('/api/users/get_memos', checkToken, async (req, res) => {
 });
 
 
-// get api to search for users using name or email id
+// api to search for users using name or username------------------------------------------------
 app.get('/api/users/search', checkToken, async (req, res) => {
   const { search, offset } = req.query;
   try {
@@ -530,7 +530,8 @@ app.get('/api/users/search', checkToken, async (req, res) => {
   }
 });
 
-// get api to get user profile details
+
+// api to get user profile details------------------------------------------------
 app.get('/api/users/other_profile', checkToken, async (req, res) => {
   const { userId } = req.query;
   try {
@@ -563,7 +564,8 @@ app.get('/api/users/other_profile', checkToken, async (req, res) => {
   }
 });
 
-// Store friend request
+
+// Store friend request------------------------------------------------
 app.post('/api/users/friend_request', checkToken, async (req, res) => {
   const { userId } = req.query;
   try {
@@ -580,7 +582,8 @@ app.post('/api/users/friend_request', checkToken, async (req, res) => {
   }
 });
 
-// get request status of friend request
+
+// get request status of friend request------------------------------------------------
 app.get('/api/users/friend_request_status', checkToken, async (req, res) => {
   const { userId } = req.query;
   try {
@@ -598,7 +601,7 @@ app.get('/api/users/friend_request_status', checkToken, async (req, res) => {
   }
 });
 
-// cancel friend request
+// cancel friend request----------------------------------------------------------------
 app.delete('/api/users/cancel_friend_request', checkToken, async (req, res) => {
   const { userId } = req.query;
   try {
@@ -616,7 +619,7 @@ app.delete('/api/users/cancel_friend_request', checkToken, async (req, res) => {
 });
 
 
-// accept friend request
+// accept friend request----------------------------------------------------------------
 app.put('/api/users/accept_friend_request', checkToken, async (req, res) => {
   const { userId } = req.query;
   try {
@@ -635,7 +638,7 @@ app.put('/api/users/accept_friend_request', checkToken, async (req, res) => {
 });
 
 
-// get pending freinds request list
+// get pending freinds request list------------------------------------------------
 app.get('/api/users/notify_pending_friends_request', checkToken, async (req, res) => {
   try {
     const token = req.headers.authorization;
@@ -661,7 +664,7 @@ app.get('/api/users/notify_pending_friends_request', checkToken, async (req, res
   }
 });
 
-// get friends moods
+// get friends moods----------------------------------------------------------------
 app.get('/api/users/friends_moods', checkToken, async (req, res) => {
   try {
     const token = req.headers.authorization;
@@ -694,6 +697,8 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
     res.status(500).json({ status: 500, message: 'Internal Server Error' });
   }
 });
+
+
 
 // get feed data from user_posts_memos and user_posts_moments of friends and user itself arranged by time
 app.get('/api/users/feed', checkToken, async (req, res) => {
@@ -744,7 +749,9 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
   }
 });
 
-// Get moments and memos of user for profile page moments clubbed by same date
+
+
+// Get moments and memos of user for profile page moments clubbed by same date--------------------------------------------
 app.get('/api/users/user_profile_posts', checkToken, async (req, res) => {
 
   const userId = req.query.userId;
@@ -780,8 +787,7 @@ app.get('/api/users/user_profile_posts', checkToken, async (req, res) => {
 });
 
 
-// get moments as per that day and userID
-
+// get moments as per that day and userID--------------------------------------------------------------------------------
 app.get('/api/users/user_profile_posts_moments', checkToken, async (req, res) => {
 
   const userId = req.query.userId;
@@ -812,7 +818,7 @@ app.get('/api/users/user_profile_posts_moments', checkToken, async (req, res) =>
   }
 });
 
-// like posts api for moments and memos DB schema
+// like posts api for moments and memos DB schema-------------------------------------------------------------------------
 app.post('/api/users/like_post', checkToken, async (req, res) => {
   const { postId, postType } = req.body;
 
@@ -826,7 +832,7 @@ app.post('/api/users/like_post', checkToken, async (req, res) => {
   }
 });
 
-// is post liked api for moments and memos and total likes of postId
+// is post liked api for moments and memos and total likes of postId--------------------------------------------------------
 app.get('/api/users/is_post_liked', checkToken, async (req, res) => {
   const { postId, postType } = req.query;
 
@@ -850,7 +856,7 @@ app.get('/api/users/is_post_liked', checkToken, async (req, res) => {
 });
 
 
-// remove like posts api for moments and memos DB schema
+// remove like posts api for moments and memos DB schema-------------------------------------------------------------------------
 app.delete('/api/users/remove_like_post', checkToken, async (req, res) => {
   const { postId, postType } = req.body;
 
@@ -866,7 +872,7 @@ app.delete('/api/users/remove_like_post', checkToken, async (req, res) => {
 });
 
 
-// add comment api for moments and memos DB schema
+// add comment api for moments and memos DB schema-------------------------------------------------------------------------
 app.post('/api/users/add_comment', checkToken, async (req, res) => {
   const { postId, postType, comment } = req.body;
 
@@ -898,13 +904,13 @@ const getNamePic = async (arr) => {
 }
 
 
-// get comments api for moments and memos DB schema
+// get comments api for moments and memos DB schema-------------------------------------------------------------------------
 app.get('/api/users/get_comments', checkToken, async (req, res) => {
   const { postId, postType } = req.query;
 
   try {
     const token = req.headers.authorization;
-    const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
+    await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
 
     const comments = await pool.query('SELECT * FROM user_posts_comments WHERE post_id = $1 AND post_type = $2', [postId, postType]);
     const commentsWithUser = await getNamePic(comments.rows);
@@ -918,23 +924,13 @@ app.get('/api/users/get_comments', checkToken, async (req, res) => {
   }
 });
 
-// api to add notification for replied comments in db
-// CREATE TABLE replied_comments (
-//   id SERIAL PRIMARY KEY,
-//   comment_user_id INT NOT NULL,
-//   replied_user_id INT NOT NULL,
-//   post_id INT NOT NULL,
-//   post_type VARCHAR(255) NOT NULL,
-//   is_view BOOLEAN DEFAULT false,
-//   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-// );
-
+// api to add notification for replied comments in db-------------------------------------------------------------------------
 app.post('/api/users/add_replied_comment_notification', checkToken, async (req, res) => {
   const { commentUserId, repliedUserId, postId, postType } = req.body;
 
   try {
     const token = req.headers.authorization;
-    const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
+    await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
     const notification = await pool.query('INSERT INTO replied_comments (comment_user_id, replied_user_id, post_id, post_type, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING *', [commentUserId, repliedUserId, postId, postType, new Date()]);
 
     return res.status(200).json({ status: 200, message: 'Notification added successfully', data: notification.rows[0] });
@@ -944,13 +940,13 @@ app.post('/api/users/add_replied_comment_notification', checkToken, async (req, 
 });
 
 
-// api to delete moment along with all its comments and likes
+// api to delete moment along with all its comments and likes-------------------------------------------------------------------------
 app.delete('/api/users/delete_moment', checkToken, async (req, res) => {
   const { momentId } = req.query;
 
   try {
     const token = req.headers.authorization;
-    const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
+    await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
 
     await pool.query('DELETE FROM user_posts_likes WHERE post_id = $1 AND post_type = $2', [momentId, 'moment']);
     await pool.query('DELETE FROM user_posts_comments WHERE post_id = $1 AND post_type = $2', [momentId, 'moment']);
@@ -962,13 +958,13 @@ app.delete('/api/users/delete_moment', checkToken, async (req, res) => {
   }
 });
 
-// api to delete memo along with all its comments and likes
+// api to delete memo along with all its comments and likes-------------------------------------------------------------------------
 app.delete('/api/users/delete_memo', checkToken, async (req, res) => {
   const { memoId } = req.query;
 
   try {
     const token = req.headers.authorization;
-    const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
+    await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
 
     await pool.query('DELETE FROM user_posts_likes WHERE post_id = $1 AND post_type = $2', [memoId, 'memo']);
     await pool.query('DELETE FROM user_posts_comments WHERE post_id = $1 AND post_type = $2', [memoId, 'memo']);
@@ -980,10 +976,9 @@ app.delete('/api/users/delete_memo', checkToken, async (req, res) => {
   }
 });
 
-// get List of friends by user id
+// get List of friends by user id-------------------------------------------------------------------------
 app.get('/api/users/get_friends', checkToken, async (req, res) => {
   const { userId } = req.query;
-
 
   try {
     const allFriends = await pool.query('SELECT * FROM friends_requests WHERE (req_by_id = $1 AND status = $2) OR (req_to_id = $1 AND status = $2)', [userId, 'accepted']);
@@ -1000,7 +995,7 @@ app.get('/api/users/get_friends', checkToken, async (req, res) => {
   }
 })
 
-// report user
+// report user-------------------------------------------------------------------------
 app.post('/api/users/report_user', checkToken, async (req, res) => {
   const { reportedUserId, ReportReason } = req.body;
 
@@ -1015,42 +1010,9 @@ app.post('/api/users/report_user', checkToken, async (req, res) => {
   }
 })
 
-// delete user and all its data
-app.delete('/api/users/delete_user', checkToken, async (req, res) => {
-
-  try {
-    const token = req.headers.authorization;
-    const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
-
-    await pool.query('DELETE FROM user_posts_likes WHERE user_id = $1', [session.rows[0].user_id]);
-    await pool.query('DELETE FROM user_posts_comments WHERE user_id = $1', [session.rows[0].user_id]);
-    await pool.query('DELETE FROM user_posts_moments WHERE user_id = $1', [session.rows[0].user_id]);
-    await pool.query('DELETE FROM user_posts_memos WHERE user_id = $1', [session.rows[0].user_id]);
-    await pool.query('DELETE FROM user_mood WHERE user_id = $1', [session.rows[0].user_id]);
-    await pool.query('DELETE FROM user_profile WHERE user_id = $1', [session.rows[0].user_id]);
-    await pool.query('DELETE FROM user_sessions WHERE user_id = $1', [session.rows[0].user_id]);
-    await pool.query('DELETE FROM friends_requests WHERE req_by_id = $1 OR req_to_id = $1', [session.rows[0].user_id]);
-    await pool.query('DELETE FROM users WHERE id = $1', [session.rows[0].user_id]);
-
-    return res.status(200).json({ status: 200, message: 'User deleted successfully' });
-  } catch (err) {
-    res.status(500).json({ status: 500, message: "Internal Server Error" })
-  }
-})
-
 
 // api to get notifications where user_posts_likes is_view is false
-// CREATE TABLE user_posts_likes (
-//   id SERIAL PRIMARY KEY,
-//   user_id INT NOT NULL,
-//   post_id INT NOT NULL,
-//   is_view BOOLEAN DEFAULT false,
-//   post_type VARCHAR(255) NOT NULL,
-//   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-// );
-
 app.get('/api/users/get_notifications', checkToken, async (req, res) => {
-
 
   try {
     const token = req.headers.authorization;
@@ -1123,7 +1085,8 @@ app.get('/api/users/get_notifications', checkToken, async (req, res) => {
   }
 })
 
-// api to get memo or moment as per post_id
+
+// api to get memo or moment as per post_id----------------------------------------------
 app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
 
   const { post_id, post_type } = req.query;
@@ -1131,7 +1094,7 @@ app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
 
   try {
     const token = req.headers.authorization;
-    const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
+    await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
 
     if (post_type === 'memo') {
       const memo = await pool.query('SELECT * FROM user_posts_memos WHERE id = $1', [post_id]);
@@ -1157,10 +1120,10 @@ app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
   }
 })
 
-// api to set is_view to true for a particular post in user_posts_likes and user_posts_comments
+
+// api to set is_view to true for a particular post in user_posts_likes and user_posts_comments----------------------------------------------
 app.put('/api/users/set_is_view', checkToken, async (req, res) => {
   const { post_id, post_type, interaction_type } = req.body;
-
 
   try {
     const token = req.headers.authorization;
@@ -1191,17 +1154,9 @@ app.put('/api/users/set_is_view', checkToken, async (req, res) => {
   }
 })
 
-// api to block user
-// CREATE TABLE blocked_users (
-//   id SERIAL PRIMARY KEY,
-//   user_id INT NOT NULL,
-//   blocked_user_id INT NOT NULL,
-//   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-// );
-
+// api to block user----------------------------------------------
 app.post('/api/users/block_user', checkToken, async (req, res) => {
   const { blocked_user_id } = req.body;
-
 
   try {
     const token = req.headers.authorization;
@@ -1215,7 +1170,7 @@ app.post('/api/users/block_user', checkToken, async (req, res) => {
 })
 
 
-// get list of blocked users
+// get list of blocked users----------------------------------------------
 app.get('/api/users/get_blocked_users', checkToken, async (req, res) => {
 
   try {
@@ -1238,7 +1193,8 @@ app.get('/api/users/get_blocked_users', checkToken, async (req, res) => {
   }
 })
 
-// get list of block user by user_id
+
+// get list of block user by user_id----------------------------------------------
 app.get('/api/users/get_blocked_users_by_user_id', checkToken, async (req, res) => {
   const { user_id } = req.query;
 
@@ -1252,7 +1208,7 @@ app.get('/api/users/get_blocked_users_by_user_id', checkToken, async (req, res) 
   }
 })
 
-// api to unblock user
+// api to unblock user----------------------------------------------
 app.delete('/api/users/unblock_user', checkToken, async (req, res) => {
   const { blocked_user_id } = req.body;
 
@@ -1267,6 +1223,36 @@ app.delete('/api/users/unblock_user', checkToken, async (req, res) => {
     res.status(500).json({ status: 500, message: "Internal Server Error" })
   }
 })
+
+
+// delete user and all its data-------------------------------------------------------------------------
+app.delete('/api/users/delete_user', checkToken, async (req, res) => {
+
+  try {
+    const token = req.headers.authorization;
+    const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
+
+    await pool.query('DELETE FROM user_posts_likes WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_posts_comments WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_posts_moments WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_posts_memos WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_mood WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_profile WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_sessions WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM friends_requests WHERE req_by_id = $1 OR req_to_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM users WHERE id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_otp WHERE user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM friends_requests WHERE req_by_id = $1 OR req_to_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM user_reports WHERE user_id = $1 OR reported_user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM replied_comments where comment_user_id = $1 OR replied_user_id = $1', [session.rows[0].user_id]);
+    await pool.query('DELETE FROM blocked_users WHERE user_id = $1 OR blocked_user_id = $1', [session.rows[0].user_id]);
+
+    return res.status(200).json({ status: 200, message: 'User deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ status: 500, message: "Internal Server Error" })
+  }
+})
+
 
 
 
