@@ -1030,7 +1030,7 @@ app.post('/api/users/report_user', checkToken, async (req, res) => {
 })
 
 
-// api to get notifications where user_posts_likes is_view is false
+// api to get notifications where is_view is false
 app.get('/api/users/get_notifications', checkToken, async (req, res) => {
 
   try {
