@@ -61,6 +61,7 @@ CREATE TABLE user_posts_moments (
     user_id INT NOT NULL,
     moment VARCHAR NOT NULL,
     caption TEXT,
+    group_by VARCHAR NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

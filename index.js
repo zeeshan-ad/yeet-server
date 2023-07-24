@@ -687,7 +687,6 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
 
 // get feed data from user_posts_memos and user_posts_moments of friends and user itself arranged by time
 app.get('/api/users/feed', checkToken, async (req, res) => {
-  const { timezone } = req.query;
 
   const currentDate = moment(new Date()).format("YYYY-MM-DD HH:mm:ss");
   const prevDate = moment().subtract(1, 'day').format("YYYY-MM-DD HH:mm:ss");
@@ -713,14 +712,14 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
           name: user.rows[0].name,
           profile_pic: profile.rows[0].profile_pic,
           theme: profile.rows[0].theme,
-          created_at: moment.utc(item.created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss"),
+          created_at: moment.utc(item.created_at).format("YYYY-MM-DD HH:mm:ss"),
         })),
       ]
       const dataMoments = posts_moments?.rows?.map(item => ({
         ...item, type: 'moment',
         name: user.rows[0].name,
         profile_pic: profile.rows[0].profile_pic,
-        created_at: moment.utc(item.created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss"),
+        created_at: moment.utc(item.created_at).format("YYYY-MM-DD HH:mm:ss"),
       }));
       return [...dataMemos, dataMoments];
     }));
@@ -737,7 +736,7 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
         name: user.rows[0].name,
         profile_pic: profile.rows[0].profile_pic,
         theme: profile.rows[0].theme,
-        created_at: moment.utc(item.created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss"),
+        created_at: moment.utc(item.created_at).format("YYYY-MM-DD HH:mm:ss"),
       })),
     ]
     const dataMoments = [
@@ -746,7 +745,7 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
         type: 'moment',
         name: user.rows[0].name,
         profile_pic: profile.rows[0].profile_pic,
-        created_at: moment.utc(item.created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss"),
+        created_at: moment.utc(item.created_at).format("YYYY-MM-DD HH:mm:ss"),
       })),
     ]
 
@@ -767,7 +766,6 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
 app.get('/api/users/user_profile_posts', checkToken, async (req, res) => {
 
   const userId = req.query.userId;
-  const timezone = req.query.timezone;
 
   try {
     // get all memos of the user as array of objects
@@ -779,8 +777,8 @@ app.get('/api/users/user_profile_posts', checkToken, async (req, res) => {
     const user = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
 
     // convert user_posts_memos and user_posts_moments to local time as per timezone
-    const memosTimeZone = user_posts_memos.rows.map(item => ({ ...item, created_at: moment.utc(item.created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss") }));
-    const momentsTimeZone = user_posts_moments.rows.map(item => ({ ...item, created_at: moment.utc(item.created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss") }));
+    const memosTimeZone = user_posts_memos.rows.map(item => ({ ...item, created_at: moment.utc(item.created_at).format("YYYY-MM-DD HH:mm:ss") }));
+    const momentsTimeZone = user_posts_moments.rows.map(item => ({ ...item, created_at: moment.utc(item.created_at).format("YYYY-MM-DD HH:mm:ss") }));
 
 
     const localTimeMoments = separateArrayByDate([momentsTimeZone]);
@@ -812,7 +810,6 @@ app.get('/api/users/user_profile_posts_moments', checkToken, async (req, res) =>
 
   const userId = req.query.userId;
   const date = req.query.date;
-  const timezone = req.query.timezone;
 
   try {
     // get all memos of the user as array of objects
@@ -1109,9 +1106,8 @@ app.get('/api/users/get_notifications', checkToken, async (req, res) => {
 // api to get memo or moment as per post_id----------------------------------------------
 app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
 
-  const { post_id, post_type, timezone } = req.query;
+  const { post_id, post_type } = req.query;
 
-  console.log(timezone)
   try {
     const token = req.headers.authorization;
     await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
@@ -1124,7 +1120,7 @@ app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
       return res.status(200).json({
         status: 200, message: 'Memo fetched successfully', data: {
           ...memo.rows[0], name: user.rows[0].name,
-          profile_pic: profile.rows[0]?.profile_pic, post_type: "memo", theme: profile?.rows[0]?.theme, created_at: moment.utc(memo.rows[0].created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss")
+          profile_pic: profile.rows[0]?.profile_pic, post_type: "memo", theme: profile?.rows[0]?.theme, created_at: moment.utc(memo.rows[0].created_at).format("YYYY-MM-DD HH:mm:ss")
         }
       });
     } else if (post_type === 'moment') {
@@ -1132,7 +1128,7 @@ app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [momentPost.rows[0].user_id]);
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [momentPost.rows[0].user_id]);
 
-      return res.status(200).json({ status: 200, message: 'Moment fetched successfully', data: { ...momentPost.rows[0], created_at: moment.utc(momentPost.rows[0].created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss"), name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, post_type: 'moment' } });
+      return res.status(200).json({ status: 200, message: 'Moment fetched successfully', data: { ...momentPost.rows[0], created_at: moment.utc(momentPost.rows[0].created_at).format("YYYY-MM-DD HH:mm:ss"), name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, post_type: 'moment' } });
     }
 
   } catch (err) {
