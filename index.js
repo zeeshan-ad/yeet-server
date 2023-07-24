@@ -54,8 +54,7 @@ function separateArrayByDate(arr) {
 
       for (let j = 0; j < item?.length; j++) {
         const obj = item[j];
-        const created_at = obj.created_at;
-        const day = created_at.split(" ")[0].trim();
+        const day = obj.group_by;
 
         if (!tempDict[day]) {
           tempDict[day] = [];
@@ -393,9 +392,9 @@ app.put('/api/users/profile-update', checkToken, async (req, res) => {
 // post moments------------------------------------------------------------------------------- 
 app.post('/api/users/post_moments', uploadMoments.single('moment'), checkToken, async (req, res) => {
   const token = req.headers.authorization;
-  const { caption } = req.query;
+  const { caption, group_by } = req.query;
   const session = await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
-  const moment = await pool.query('INSERT INTO user_posts_moments (user_id, moment, created_at, caption) VALUES ($1, $2, $3, $4) RETURNING *', [session.rows[0].user_id, `/moments/${req.file.filename}`, new Date(), caption]);
+  const moment = await pool.query('INSERT INTO user_posts_moments (user_id, moment, created_at, group_by, caption) VALUES ($1, $2, $3, $4, $5) RETURNING *', [session.rows[0].user_id, `/moments/${req.file.filename}`, new Date(), group_by, caption]);
   if (moment.rows.length === 0) {
     return res.status(500).json({ status: 500, message: 'Internal Server Error' });
   }
@@ -671,11 +670,12 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
     // Sort the array by the 'time' property in descending order
     const sortedData = friends_moods.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    // if mood created_at is more than 1 day old then return empty mood
-    // const finalData = sortedData.forEach((item) => {
-    //   const diff = moment.utc(new Date()).diff(moment.utc(item.created_at), 'days');
-    //   if (diff > 1) item.mood = '';
-    // });
+    //  if created_at is more than 24 hours then remove those mooods
+    sortedData.forEach((item) => {
+      if (moment.utc(new Date()).diff(moment.utc(item.time), 'hours') > 24) {
+        item.mood = '';
+      }
+    });
 
     return res.status(200).json({ status: 200, data: sortedData.filter(item => item.mood !== '') });
   } catch (err) {
@@ -688,8 +688,9 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
 // get feed data from user_posts_memos and user_posts_moments of friends and user itself arranged by time
 app.get('/api/users/feed', checkToken, async (req, res) => {
   const { timezone } = req.query;
-  const currentDate = moment.utc(new Date()).format("YYYY-MM-DD");
-  const prevDate = moment.utc().subtract(1, 'day').format("YYYY-MM-DD");
+
+  const currentDate = moment(new Date()).format("YYYY-MM-DD HH:mm:ss");
+  const prevDate = moment().subtract(1, 'day').format("YYYY-MM-DD HH:mm:ss");
 
   try {
     const token = req.headers.authorization;
@@ -812,7 +813,7 @@ app.get('/api/users/user_profile_posts_moments', checkToken, async (req, res) =>
   const userId = req.query.userId;
   const date = req.query.date;
   const timezone = req.query.timezone;
-  
+
   try {
     // get all memos of the user as array of objects
     const user_posts_moments = await pool.query('SELECT * FROM user_posts_moments WHERE user_id = $1 AND DATE(created_at) = $2 ORDER BY id DESC', [userId, date]);
@@ -1108,9 +1109,9 @@ app.get('/api/users/get_notifications', checkToken, async (req, res) => {
 // api to get memo or moment as per post_id----------------------------------------------
 app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
 
-  const { post_id, post_type } = req.query;
+  const { post_id, post_type, timezone } = req.query;
 
-
+  console.log(timezone)
   try {
     const token = req.headers.authorization;
     await pool.query('SELECT * FROM user_sessions WHERE token = $1', [token]);
@@ -1123,15 +1124,15 @@ app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
       return res.status(200).json({
         status: 200, message: 'Memo fetched successfully', data: {
           ...memo.rows[0], name: user.rows[0].name,
-          profile_pic: profile.rows[0]?.profile_pic, post_type: "memo", theme: profile?.rows[0]?.theme
+          profile_pic: profile.rows[0]?.profile_pic, post_type: "memo", theme: profile?.rows[0]?.theme, created_at: moment.utc(memo.rows[0].created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss")
         }
       });
     } else if (post_type === 'moment') {
-      const moment = await pool.query('SELECT * FROM user_posts_moments WHERE id = $1', [post_id]);
-      const user = await pool.query('SELECT * FROM users WHERE id = $1', [moment.rows[0].user_id]);
-      const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [moment.rows[0].user_id]);
+      const momentPost = await pool.query('SELECT * FROM user_posts_moments WHERE id = $1', [post_id]);
+      const user = await pool.query('SELECT * FROM users WHERE id = $1', [momentPost.rows[0].user_id]);
+      const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [momentPost.rows[0].user_id]);
 
-      return res.status(200).json({ status: 200, message: 'Moment fetched successfully', data: { ...moment.rows[0], name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, post_type: 'moment' } });
+      return res.status(200).json({ status: 200, message: 'Moment fetched successfully', data: { ...momentPost.rows[0], created_at: moment.utc(momentPost.rows[0].created_at).tz(timezone).format("YYYY-MM-DD HH:mm:ss"), name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, post_type: 'moment' } });
     }
 
   } catch (err) {
