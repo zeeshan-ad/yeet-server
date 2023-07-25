@@ -33,15 +33,6 @@ const uploadMoments = multer({ storage: storageMoments });
 const upload = multer({ storage: storage });
 
 
-function convertToLocalTime(array) {
-  return array.map(obj => {
-    const utcTimestamp = new Date(obj.created_at);
-    const localTimestamp = utcTimestamp.toLocaleString();
-    return { ...obj, created_at: localTimestamp };
-  });
-}
-
-
 function separateArrayByDate(arr) {
   let result = [];
   let tempDict = {};
@@ -74,18 +65,6 @@ function separateArrayByDate(arr) {
   return result;
 }
 
-function getLatestObjectsPerDay(array) {
-  const latestObjects = {};
-
-  array.forEach(obj => {
-    const date = new Date(obj.created_at).toDateString();
-    if (!latestObjects[date] || new Date(obj.created_at) > new Date(latestObjects[date].created_at)) {
-      latestObjects[date] = obj;
-    }
-  });
-
-  return Object.values(latestObjects);
-}
 
 function compareCreatedAt(a, b) {
   const dateA = Array.isArray(a) ? new Date(a[0].created_at) : new Date(a.created_at);
@@ -786,6 +765,7 @@ app.get('/api/users/user_profile_posts', checkToken, async (req, res) => {
     if (!user_posts_memos.rows.length && !user_posts_moments.rows.length)
       return res.status(404).json({ status: 404, message: 'No data found' });
 
+
     return res.status(200).json({
       status: 200, data: {
         memos: memosTimeZone.map(item => ({
@@ -794,11 +774,10 @@ app.get('/api/users/user_profile_posts', checkToken, async (req, res) => {
           theme: profile?.rows?.[0]?.theme,
           name: user?.rows?.[0]?.name,
         })),
-        moments: localTimeMoments.map(item => item[0]),
+        moments: localTimeMoments.reverse().map(item => item[0]),
         momentsGroup: localTimeMoments,
       }
     });
-
   } catch (err) {
     res.status(500).json({ status: 500, message: 'Internal Server Error' });
   }
