@@ -669,8 +669,8 @@ app.get('/api/users/friends_moods', checkToken, async (req, res) => {
 // get feed data from user_posts_memos and user_posts_moments of friends and user itself arranged by time
 app.get('/api/users/feed', checkToken, async (req, res) => {
 
-  const currentDate = moment(new Date()).format("YYYY-MM-DD HH:mm:ss");
-  const prevDate = moment().subtract(1, 'day').format("YYYY-MM-DD HH:mm:ss");
+  const currentDate = moment(new Date()).format("YYYY-MM-DD");
+  const prevDate = moment().subtract(1, 'day').format("YYYY-MM-DD");
 
   try {
     const token = req.headers.authorization;
