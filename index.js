@@ -474,7 +474,7 @@ app.get('/api/users/search', checkToken, async (req, res) => {
     // maps users.rows to fetch from user_profile table user details and save it in data
     const data = await Promise.all(users.rows.map(async (user) => {
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [user.id]);
-      return { id: user?.id, name: user?.name, username: user?.username, profile_pic: profile?.rows[0]?.profile_pic };
+      return { id: user?.id, name: user?.name, username: user?.username, profile_pic: profile?.rows[0]?.profile_pic, theme: profile?.rows[0]?.theme };
     }));
 
     // Select all blocked users
@@ -508,7 +508,7 @@ app.get('/api/users/other_profile', checkToken, async (req, res) => {
     const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [userId]);
     const user = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
     // get mood
-    const mood = await pool.query('SELECT * FROM user_mood WHERE user_id = $1', [userId]);
+    let mood = await pool.query('SELECT * FROM user_mood WHERE user_id = $1', [userId]);
     // get total friends
     const friends = await pool.query('SELECT * FROM friends_requests WHERE (req_by_id = $1 OR req_to_id = $1) AND (status = $2)', [userId, "accepted"]);
     delete user.rows[0].password;
@@ -519,7 +519,9 @@ app.get('/api/users/other_profile', checkToken, async (req, res) => {
       return res.status(200).json({
         status: 200, data: {
           ...profile.rows[0], ...user.rows[0],
-          mood: mood.rows[0]?.mood ? mood.rows[0]?.mood : null, totalFriends: friends.rows.length
+          // if mood is more than 24 hours old, set mood to null
+          mood: mood.rows.length ? (new Date() - new Date(mood.rows[0].created_at) > 86400000 ? null : mood.rows[0].mood) : null,
+          totalFriends: friends.rows.length
         }
       });
   } catch (err) {
@@ -618,7 +620,7 @@ app.get('/api/users/notify_pending_friends_request', checkToken, async (req, res
       const data = await Promise.all(user_req.rows.map(async (item) => {
         const user = await pool.query('SELECT * FROM users WHERE id = $1', [item.req_by_id]);
         const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [item.req_by_id]);
-        return { ...item, name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic };
+        return { ...item, name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, theme: profile.rows[0].theme };
       }));
       return res.status(200).json({ status: 200, data: data });
     }
@@ -698,6 +700,7 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
         ...item, type: 'moment',
         name: user.rows[0].name,
         profile_pic: profile.rows[0].profile_pic,
+        theme: profile.rows[0].theme,
         created_at: moment.utc(item.created_at).format("YYYY-MM-DD HH:mm:ss"),
       }));
       return [...dataMemos, dataMoments];
@@ -724,6 +727,7 @@ app.get('/api/users/feed', checkToken, async (req, res) => {
         type: 'moment',
         name: user.rows[0].name,
         profile_pic: profile.rows[0].profile_pic,
+        theme: profile.rows[0].theme,
         created_at: moment.utc(item.created_at).format("YYYY-MM-DD HH:mm:ss"),
       })),
     ]
@@ -844,7 +848,7 @@ app.get('/api/users/is_post_liked', checkToken, async (req, res) => {
     const NameProfile = await Promise.all(likedByUsers.rows.map(async (item) => {
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [item.user_id]);
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [item.user_id]);
-      return { name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, id: item.user_id };
+      return { name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, id: item.user_id, theme: profile.rows[0].theme };
     }));
     const totalLikes = await pool.query('SELECT COUNT(*) FROM user_posts_likes WHERE post_id = $1 AND post_type = $2', [postId, postType]);
     return res.status(200).json({ status: 200, message: 'Post liked successfully', data: { isLiked: isLiked.rows.length > 0, totalLikes: totalLikes.rows[0].count, likedByUsers: NameProfile } });
@@ -893,6 +897,7 @@ const getNamePic = async (arr) => {
     newArr.push({
       ...arr[i],
       profile_pic: profile.rows[0].profile_pic,
+      theme: profile.rows[0].theme,
       name: user.rows[0].name,
       user_id: user.rows[0].id,
       date: arr[i]?.created_at,
@@ -982,7 +987,7 @@ app.get('/api/users/get_friends', checkToken, async (req, res) => {
     const data = await Promise.all(allFriends.rows.map(async (item) => {
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [userId == item?.req_by_id ? item?.req_to_id : item?.req_by_id]);
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [userId == item?.req_by_id ? item?.req_to_id : item?.req_by_id]);
-      return { name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, id: user.rows[0].id };
+      return { name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, id: user.rows[0].id, theme: profile.rows[0].theme };
     }))
 
     return res.status(200).json({ status: 200, message: 'Friends fetched successfully', data });
@@ -1040,14 +1045,14 @@ app.get('/api/users/get_notifications', checkToken, async (req, res) => {
     const data = await Promise.all(allLikes.map(async (item) => {
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [item.user_id]);
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [item.user_id]);
-      return { name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, ...item, interaction_type: 'liked' };
+      return { name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, ...item, interaction_type: 'liked', theme: profile.rows[0].theme };
     }))
 
     // get profile pic and name of user who commented on the post
     const data2 = await Promise.all(allComments.map(async (item) => {
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [item.user_id]);
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [item.user_id]);
-      return { name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, ...item, interaction_type: 'commented' };
+      return { name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, ...item, interaction_type: 'commented', theme: profile.rows[0].theme };
     }))
 
     // get notfication from replied_comments table where comment_user_id is session user_id
@@ -1058,7 +1063,7 @@ app.get('/api/users/get_notifications', checkToken, async (req, res) => {
     const data3 = await Promise.all(repliedComments.rows.map(async (item) => {
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [item.comment_user_id]);
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [item.comment_user_id]);
-      return { name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, ...item, interaction_type: 'replied' };
+      return { name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, ...item, interaction_type: 'replied', theme: profile.rows[0].theme };
     }))
 
 
@@ -1107,7 +1112,7 @@ app.get('/api/users/get_memo_moment', checkToken, async (req, res) => {
       const user = await pool.query('SELECT * FROM users WHERE id = $1', [momentPost.rows[0].user_id]);
       const profile = await pool.query('SELECT * FROM user_profile WHERE user_id = $1', [momentPost.rows[0].user_id]);
 
-      return res.status(200).json({ status: 200, message: 'Moment fetched successfully', data: { ...momentPost.rows[0], created_at: moment.utc(momentPost.rows[0].created_at).format("YYYY-MM-DD HH:mm:ss"), name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, post_type: 'moment' } });
+      return res.status(200).json({ status: 200, message: 'Moment fetched successfully', data: { ...momentPost.rows[0], created_at: moment.utc(momentPost.rows[0].created_at).format("YYYY-MM-DD HH:mm:ss"), name: user.rows[0].name, profile_pic: profile.rows[0].profile_pic, post_type: 'moment', theme: profile.rows[0].theme } });
     }
 
   } catch (err) {
