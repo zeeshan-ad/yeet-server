@@ -763,6 +763,24 @@ app.get('/api/users/user_profile_posts', checkToken, async (req, res) => {
     const memosTimeZone = user_posts_memos.rows.map(item => ({ ...item, created_at: moment.utc(item.created_at).format("YYYY-MM-DD HH:mm:ss") }));
     const momentsTimeZone = user_posts_moments.rows.map(item => ({ ...item, created_at: moment.utc(item.created_at).format("YYYY-MM-DD HH:mm:ss") }));
 
+    const queryResult = await pool.query(
+      `SELECT COUNT(*) as count
+       FROM (
+         SELECT DISTINCT DATE(created_at) as post_date, 
+                LEAD(DATE(created_at)) OVER (ORDER BY DATE(created_at)) as next_post_date
+         FROM (
+           SELECT created_at FROM user_posts_memos WHERE user_id = $1
+           UNION
+           SELECT created_at FROM user_posts_moments WHERE user_id = $1
+           UNION
+           SELECT created_at FROM user_mood WHERE user_id = $1 AND mood IS NOT NULL
+         ) as all_posts
+       ) as consecutive_posts
+       WHERE next_post_date - post_date = 1 OR next_post_date IS NULL`,
+      [userId]
+    );
+
+    const count = parseInt(queryResult.rows[0].count);
 
     const localTimeMoments = separateArrayByDate([momentsTimeZone]);
 
@@ -780,6 +798,7 @@ app.get('/api/users/user_profile_posts', checkToken, async (req, res) => {
         })),
         moments: localTimeMoments.reverse().map(item => item[0]),
         momentsGroup: localTimeMoments,
+        score: count
       }
     });
   } catch (err) {
