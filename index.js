@@ -1044,14 +1044,19 @@ app.get('/api/users/get_notifications', checkToken, async (req, res) => {
     const memoArr = [...allMemos.rows.map(item => item.id)];
     const momentArr = [...allMoments.rows.map(item => item.id)];
 
+    // get all friends array
+    const allFriends = await pool.query('SELECT * FROM friends_requests WHERE (req_by_id = $1 AND status = $2) OR (req_to_id = $1 AND status = $2)', [session.rows[0].user_id, 'accepted']);
+
+    const friends_arr = allFriends.rows.map(item => item.req_by_id == session.rows[0].user_id ? item.req_to_id : item.req_by_id);
+
 
     // select all from user_posts_likes where post_id in (memoArr, momentArr) and user_id is not session user id
-    const MemoLikes = await pool.query('SELECT * FROM user_posts_likes WHERE post_id = ANY($1) AND user_id != $2', [memoArr, session.rows[0].user_id]);
-    const MomentLikes = await pool.query('SELECT * FROM user_posts_likes WHERE post_id = ANY($1) AND user_id != $2', [momentArr, session.rows[0].user_id]);
+    const MemoLikes = await pool.query('SELECT * FROM user_posts_likes WHERE post_id = ANY($1) AND user_id = ANY($2)', [memoArr, friends_arr]);
+    const MomentLikes = await pool.query('SELECT * FROM user_posts_likes WHERE post_id = ANY($1) AND user_id = ANY($2)', [momentArr, friends_arr]);
 
     // select all from user_posts_comments where post_id in (memoArr, momentArr) and user_id is not session user id
-    const MemoComments = await pool.query('SELECT * FROM user_posts_comments WHERE post_id = ANY($1) AND user_id != $2', [memoArr, session.rows[0].user_id]);
-    const MomentComments = await pool.query('SELECT * FROM user_posts_comments WHERE post_id = ANY($1) AND user_id != $2', [momentArr, session.rows[0].user_id]);
+    const MemoComments = await pool.query('SELECT * FROM user_posts_comments WHERE post_id = ANY($1) AND user_id = ANY($2)', [memoArr, friends_arr]);
+    const MomentComments = await pool.query('SELECT * FROM user_posts_comments WHERE post_id = ANY($1) AND user_id = ANY($2)', [momentArr, friends_arr]);
 
     // make MemoLikes and MomentLikes a single array of object arranged as per created_at
     const allLikes = [...MemoLikes.rows, ...MomentLikes.rows].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
