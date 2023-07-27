@@ -1051,12 +1051,12 @@ app.get('/api/users/get_notifications', checkToken, async (req, res) => {
 
 
     // select all from user_posts_likes where post_id in (memoArr, momentArr) and user_id is not session user id
-    const MemoLikes = await pool.query('SELECT * FROM user_posts_likes WHERE post_id = ANY($1) AND user_id = ANY($2)', [memoArr, friends_arr]);
-    const MomentLikes = await pool.query('SELECT * FROM user_posts_likes WHERE post_id = ANY($1) AND user_id = ANY($2)', [momentArr, friends_arr]);
+    const MemoLikes = await pool.query('SELECT * FROM user_posts_likes WHERE post_id = ANY($1) AND user_id = ANY($2) AND post_type = $3', [memoArr, friends_arr, 'memo']);
+    const MomentLikes = await pool.query('SELECT * FROM user_posts_likes WHERE post_id = ANY($1) AND user_id = ANY($2) AND post_type = $3', [momentArr, friends_arr, 'moment']);
 
     // select all from user_posts_comments where post_id in (memoArr, momentArr) and user_id is not session user id
-    const MemoComments = await pool.query('SELECT * FROM user_posts_comments WHERE post_id = ANY($1) AND user_id = ANY($2)', [memoArr, friends_arr]);
-    const MomentComments = await pool.query('SELECT * FROM user_posts_comments WHERE post_id = ANY($1) AND user_id = ANY($2)', [momentArr, friends_arr]);
+    const MemoComments = await pool.query('SELECT * FROM user_posts_comments WHERE post_id = ANY($1) AND user_id = ANY($2) AND post_type = $3', [memoArr, friends_arr, 'memo']);
+    const MomentComments = await pool.query('SELECT * FROM user_posts_comments WHERE post_id = ANY($1) AND user_id = ANY($2) AND post_type = $3', [momentArr, friends_arr, 'moment']);
 
     // make MemoLikes and MomentLikes a single array of object arranged as per created_at
     const allLikes = [...MemoLikes.rows, ...MomentLikes.rows].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));

@@ -48,6 +48,7 @@ CREATE TABLE user_posts_memos (
     memo TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
 CREATE TABLE friends_requests (
     id SERIAL PRIMARY KEY,
     req_by_id INT NOT NULL,
@@ -56,6 +57,15 @@ CREATE TABLE friends_requests (
     notify BOOL NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE friends_requests
+ADD CONSTRAINT unique_req_by_id_req_to_id
+UNIQUE (req_by_id, req_to_id);
+
+ALTER TABLE friends_requests
+ADD CONSTRAINT unique_req_to_id_req_by_id
+UNIQUE (req_to_id, req_by_id);
+
 CREATE TABLE user_posts_moments (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
@@ -74,6 +84,10 @@ CREATE TABLE user_posts_likes (
     post_type VARCHAR(255) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE user_posts_likes
+ADD CONSTRAINT unique_user_post_combination
+UNIQUE (user_id, post_id);
 
 -- DB to hold Comments
 CREATE TABLE user_posts_comments (
