@@ -1103,7 +1103,10 @@ app.get('/api/users/get_notifications', checkToken, async (req, res) => {
     // remove blocked users from finalData
     const filteredData = finalData.filter((item) => !blockedUserArray.includes(item.user_id || item.comment_user_id || item.replied_user_id));
 
-    return res.status(200).json({ status: 200, message: 'Notifications fetched successfully', data: filteredData });
+    // sort filteredData with is_view = false first
+    const sortedData = filteredData.sort((a, b) => a.is_view - b.is_view);
+
+    return res.status(200).json({ status: 200, message: 'Notifications fetched successfully', data: sortedData });
 
   } catch (err) {
     res.status(500).json({ status: 500, message: "Internal Server Error" })
