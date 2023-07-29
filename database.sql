@@ -10,6 +10,9 @@ CREATE TABLE users (
     dob TEXT NOT NULL
 );
 
+ALTER TABLE users
+ADD CONSTRAINT unique_email UNIQUE (email);
+
 -- OTP reset password
 CREATE TABLE user_otp (
     id SERIAL PRIMARY KEY,
