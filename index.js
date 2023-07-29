@@ -773,7 +773,7 @@ app.get('/api/users/user_profile_posts', checkToken, async (req, res) => {
            UNION
            SELECT created_at FROM user_posts_moments WHERE user_id = $1
            UNION
-           SELECT created_at FROM user_mood WHERE user_id = $1 AND mood IS NOT NULL OR mood != ''
+           SELECT created_at FROM user_mood WHERE user_id = $1 AND mood IS NOT NULL AND mood != ''
          ) as all_posts
        ) as consecutive_posts
        WHERE next_post_date - post_date = 1 OR next_post_date IS NULL`,
