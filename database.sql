@@ -90,7 +90,7 @@ CREATE TABLE user_posts_likes (
 
 ALTER TABLE user_posts_likes
 ADD CONSTRAINT unique_user_post_combination
-UNIQUE (user_id, post_id);
+UNIQUE (user_id, post_id, post_type);
 
 -- DB to hold Comments
 CREATE TABLE user_posts_comments (
